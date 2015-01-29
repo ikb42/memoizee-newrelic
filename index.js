@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var logger = require('log4js').getLogger('memoizee-newrelic'),
+var log4 = require('log4js').getLogger('memoizee-newrelic'),
     _ = require('lodash'),
     memProfile = require('memoizee/profile'),
     pkg = require('./package.json'),
     os = require('os'),
     https = require('https'),
-    license = '';
+    license = '',
+    logging = false;
 
 function report() {
     var req = https.request({
@@ -30,7 +31,7 @@ function report() {
     }, function(res) {
         res.setEncoding('utf8');
         res.on('data', function (chunk) {
-          logger.trace('NR BODY: ' + chunk);
+          logger(log4.trace, 'NR BODY: ' + chunk);
         });
     });
     var obj = {
@@ -47,7 +48,7 @@ function report() {
           "metrics" : {}
         }
       ]
-    }
+    };
     //logger.trace(memProfile.log());
     var totalHits = 0,
         totalMisses = 0,
@@ -74,14 +75,23 @@ function report() {
     obj.components[0].metrics["Component/Memoize/Total/Hits[hits|calls]"] = {total: totalHits, count: totalCalls};
     obj.components[0].metrics["Component/Memoize/Total/Misses[misses|calls]"] = {total: totalMisses, count: totalCalls};
     req.write(JSON.stringify(obj));
-    logger.trace(JSON.stringify(obj));
+    logger(log4.trace, JSON.stringify(obj));
     req.end();
 }
 
-function init(License) {
+function init(License, options) {
+    var interval = 60000;
+    if (options) {
+        logging = (options.logging ? options.logging : false);
+        interval = (options.interval ? options.interval : interval);
+    }
     license = License;
     report();
-    setInterval(report, 60000);
+    setInterval(report, interval);
+}
+
+function logger(pLogFn, thing) {
+    if (logging) pLogFn(thing);
 }
 
 module.exports = init;
